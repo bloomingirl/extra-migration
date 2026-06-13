@@ -228,7 +228,7 @@ resource "aws_autoscaling_group" "eks_nodes" {
   min_size         = var.node_min_size
   max_size         = var.node_max_size
 
-  vpc_zone_identifier = var.private_subnet_ids
+  vpc_zone_identifier = var.public_subnet_ids
 
   launch_template {
     id      = aws_launch_template.eks_nodes.id
@@ -263,3 +263,4 @@ resource "aws_eks_addon" "ebs_csi" {
   cluster_name = aws_eks_cluster.this.name
   addon_name   = "aws-ebs-csi-driver"
 }
+
