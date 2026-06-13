@@ -172,6 +172,7 @@ resource "aws_vpc_endpoint" "interface" {
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
+  ip_address_type     = "ipv6"
 
   tags = {
     Name = "extra-migration-${var.environment}-${each.key}"
