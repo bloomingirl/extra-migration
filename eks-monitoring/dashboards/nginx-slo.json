@@ -1,0 +1,113 @@
+{
+  "title": "Nginx SLO Dashboard",
+  "uid": "nginx-slo-001",
+  "tags": ["slo", "nginx"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "SLO: HTTP Success Rate (target 99.9%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0.99,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.998 },
+              { "color": "green", "value": 0.999 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "job:nginx_http_requests:success_rate5m",
+          "legendFormat": "Success Rate"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Error Budget Remaining",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.25 },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "job:nginx_http_requests:error_budget_remaining",
+          "legendFormat": "Budget Remaining"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "HTTP Request Rate by Status",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(nginx_http_requests_total[5m])",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "5xx Error Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      },
+      "targets": [
+        {
+          "expr": "rate(nginx_http_requests_total{status=~\"5..\"}[5m])",
+          "legendFormat": "5xx errors/s"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "CloudWatch: ALB RequestCount",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": "CloudWatch",
+      "targets": [
+        {
+          "dimensions": {},
+          "expression": "",
+          "highResolution": false,
+          "id": "alb_requests",
+          "matchExact": true,
+          "metricName": "RequestCount",
+          "namespace": "AWS/ApplicationELB",
+          "period": "60",
+          "refId": "A",
+          "region": "us-east-1",
+          "statistics": ["Sum"]
+        }
+      ]
+    }
+  ]
+}
