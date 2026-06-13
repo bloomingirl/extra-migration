@@ -1,0 +1,153 @@
+# values/dev.yaml
+# Development environment — the only environment actually deployed
+
+# ── Elasticsearch ─────────────────────────────────────────────────────────────
+elasticsearch:
+  replicas: 1          # single node for dev — not HA, that's intentional
+  image:
+    repository: docker.elastic.co/elasticsearch/elasticsearch
+    tag: "8.13.4"
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+  # JVM heap — always half of memory limit
+  esJavaOpts: "-Xmx1g -Xms1g"
+
+  # Single-node mode (no cluster formation needed)
+  extraEnvs:
+    - name: discovery.type
+      value: single-node
+    - name: xpack.security.enabled
+      value: "true"
+    - name: xpack.security.http.ssl.enabled
+      value: "false"   # TLS handled by ingress layer
+
+  # Credentials from AWS Secrets Manager — injected at deploy time
+  # Never hardcoded here
+  secretMounts:
+    - name: elastic-credentials
+      secretName: elasticsearch-credentials
+      path: /usr/share/elasticsearch/config/credentials
+
+  persistence:
+    enabled: true
+    storageClass: gp2
+    size: 30Gi
+
+  # Retention — handled by ILM policy (see templates/elasticsearch-ilm.yaml)
+  # Default: hot 7d → delete
+
+# ── Fluent Bit ────────────────────────────────────────────────────────────────
+fluentbit:
+  image:
+    repository: fluent/fluent-bit
+    tag: "3.1.4"
+
+  # Runs as DaemonSet — one pod per node
+  tolerations:
+    - operator: Exists
+
+  # Dual output: Elasticsearch + S3
+  # S3 bucket name and IAM role ARN set per-env below
+  s3:
+    bucket: extra-migration-dev-logs
+    region: us-east-1
+    # IRSA role ARN — injected via serviceAccount annotation
+    roleArn: ""   # set after terraform apply outputs it
+
+  config:
+    service: |
+      [SERVICE]
+          Flush        5
+          Daemon       Off
+          Log_Level    info
+          HTTP_Server  On
+          HTTP_Listen  0.0.0.0
+          HTTP_Port    2020
+
+    inputs: |
+      [INPUT]
+          Name              tail
+          Path              /var/log/containers/*.log
+          Parser            docker
+          Tag               kube.*
+          Refresh_Interval  5
+          Mem_Buf_Limit     50MB
+          Skip_Long_Lines   On
+
+    filters: |
+      [FILTER]
+          Name                kubernetes
+          Match               kube.*
+          Kube_URL            https://kubernetes.default.svc:443
+          Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+          Merge_Log           On
+          Keep_Log            Off
+          K8S-Logging.Parser  On
+          K8S-Logging.Exclude On
+
+    outputs: |
+      # Output 1 — Elasticsearch
+      [OUTPUT]
+          Name            es
+          Match           kube.*
+          Host            elasticsearch.logging.svc.cluster.local
+          Port            9200
+          HTTP_User       ${ELASTICSEARCH_USER}
+          HTTP_Passwd     ${ELASTICSEARCH_PASSWORD}
+          Index           fluent-bit
+          Type            _doc
+          tls             Off
+          Retry_Limit     5
+
+      # Output 2 — S3 (redundant backup)
+      [OUTPUT]
+          Name                         s3
+          Match                        kube.*
+          bucket                       extra-migration-dev-logs
+          region                       us-east-1
+          total_file_size              50M
+          upload_timeout               10m
+          use_put_object               On
+          compression                  gzip
+          s3_key_format                /logs/%Y/%m/%d/%H/$TAG[4]_%H%M%S
+
+# ── Kibana ────────────────────────────────────────────────────────────────────
+kibana:
+  image:
+    repository: docker.elastic.co/kibana/kibana
+    tag: "8.13.4"
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+  # Credentials — sourced from Secrets Manager, not committed
+  secretMounts:
+    - name: kibana-credentials
+      secretName: kibana-credentials
+      path: /usr/share/kibana/config/credentials
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      # IP allowlist — only your home IP
+      nginx.ingress.kubernetes.io/whitelist-source-range: "YOUR_HOME_IP/32"
+    hosts:
+      - host: kibana-extra-migration-dev.YOUR_DOMAIN_HERE
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []  # add once cert-manager lands (Story 1.5)
