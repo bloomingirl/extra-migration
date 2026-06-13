@@ -1,0 +1,25 @@
+# values/staging.yaml
+# Staging — defined but not deployed
+
+elasticsearch:
+  replicas: 3
+  persistence:
+    size: 100Gi
+  esJavaOpts: "-Xmx2g -Xms2g"
+  resources:
+    requests:
+      memory: "2Gi"
+    limits:
+      memory: "4Gi"
+
+fluentbit:
+  s3:
+    bucket: extra-migration-staging-logs
+
+kibana:
+  ingress:
+    hosts:
+      - host: kibana-extra-migration-staging.YOUR_DOMAIN_HERE
+        paths:
+          - path: /
+            pathType: Prefix
