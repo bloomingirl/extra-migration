@@ -1,9 +1,9 @@
 # values/dev.yaml
-# Development environment — the only environment actually deployed
+# Development environment — access via kubectl port-forward (no ingress/domain needed)
 
 # ── Elasticsearch ─────────────────────────────────────────────────────────────
 elasticsearch:
-  replicas: 1          # single node for dev — not HA, that's intentional
+  replicas: 1
   image:
     repository: docker.elastic.co/elasticsearch/elasticsearch
     tag: "8.13.4"
@@ -16,32 +16,20 @@ elasticsearch:
       memory: "2Gi"
       cpu: "1000m"
 
-  # JVM heap — always half of memory limit
   esJavaOpts: "-Xmx1g -Xms1g"
 
-  # Single-node mode (no cluster formation needed)
   extraEnvs:
     - name: discovery.type
       value: single-node
     - name: xpack.security.enabled
       value: "true"
     - name: xpack.security.http.ssl.enabled
-      value: "false"   # TLS handled by ingress layer
-
-  # Credentials from AWS Secrets Manager — injected at deploy time
-  # Never hardcoded here
-  secretMounts:
-    - name: elastic-credentials
-      secretName: elasticsearch-credentials
-      path: /usr/share/elasticsearch/config/credentials
+      value: "false"
 
   persistence:
     enabled: true
     storageClass: gp2
     size: 30Gi
-
-  # Retention — handled by ILM policy (see templates/elasticsearch-ilm.yaml)
-  # Default: hot 7d → delete
 
 # ── Fluent Bit ────────────────────────────────────────────────────────────────
 fluentbit:
@@ -49,17 +37,13 @@ fluentbit:
     repository: fluent/fluent-bit
     tag: "3.1.4"
 
-  # Runs as DaemonSet — one pod per node
   tolerations:
     - operator: Exists
 
-  # Dual output: Elasticsearch + S3
-  # S3 bucket name and IAM role ARN set per-env below
   s3:
     bucket: extra-migration-dev-logs
     region: us-east-1
-    # IRSA role ARN — injected via serviceAccount annotation
-    roleArn: ""   # set after terraform apply outputs it
+    roleArn: ""   # paste output of: terraform output fluentbit_s3_role_arn
 
   config:
     service: |
@@ -94,7 +78,6 @@ fluentbit:
           K8S-Logging.Exclude On
 
     outputs: |
-      # Output 1 — Elasticsearch
       [OUTPUT]
           Name            es
           Match           kube.*
@@ -107,7 +90,6 @@ fluentbit:
           tls             Off
           Retry_Limit     5
 
-      # Output 2 — S3 (redundant backup)
       [OUTPUT]
           Name                         s3
           Match                        kube.*
@@ -133,21 +115,6 @@ kibana:
       memory: "1Gi"
       cpu: "500m"
 
-  # Credentials — sourced from Secrets Manager, not committed
-  secretMounts:
-    - name: kibana-credentials
-      secretName: kibana-credentials
-      path: /usr/share/kibana/config/credentials
-
+  # Ingress disabled — use kubectl port-forward instead
   ingress:
-    enabled: true
-    ingressClassName: nginx
-    annotations:
-      # IP allowlist — only your home IP
-      nginx.ingress.kubernetes.io/whitelist-source-range: "YOUR_HOME_IP/32"
-    hosts:
-      - host: kibana-extra-migration-dev.YOUR_DOMAIN_HERE
-        paths:
-          - path: /
-            pathType: Prefix
-    tls: []  # add once cert-manager lands (Story 1.5)
+    enabled: false
