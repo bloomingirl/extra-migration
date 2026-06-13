@@ -1,0 +1,25 @@
+# values/production.yaml
+# Production — defined but not deployed
+
+elasticsearch:
+  replicas: 3
+  persistence:
+    size: 500Gi
+  esJavaOpts: "-Xmx4g -Xms4g"
+  resources:
+    requests:
+      memory: "4Gi"
+    limits:
+      memory: "8Gi"
+
+fluentbit:
+  s3:
+    bucket: extra-migration-prod-logs
+
+kibana:
+  ingress:
+    hosts:
+      - host: kibana-extra-migration-prod.YOUR_DOMAIN_HERE
+        paths:
+          - path: /
+            pathType: Prefix
