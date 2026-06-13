@@ -1,5 +1,5 @@
 # values/dev.yaml
-# Development environment values for eks-monitoring stack
+# Development environment — access via kubectl port-forward (no ingress/domain needed)
 
 kube-prometheus-stack:
   enabled: true
@@ -33,7 +33,6 @@ kube-prometheus-stack:
         - name: slo.nginx
           interval: 30s
           rules:
-            # Rate of successful requests (non-5xx)
             - record: job:nginx_http_requests:success_rate5m
               expr: |
                 1 - (
@@ -41,8 +40,6 @@ kube-prometheus-stack:
                   /
                   rate(nginx_http_requests_total[5m])
                 )
-
-            # Error budget remaining (target 99.9%)
             - record: job:nginx_http_requests:error_budget_remaining
               expr: |
                 1 - (
@@ -54,21 +51,23 @@ kube-prometheus-stack:
   grafana:
     enabled: true
 
-    # Admin credentials from AWS Secrets Manager (injected at deploy time)
-    # Never hardcode here — see deploy workflow
+    # Credentials from AWS Secrets Manager — injected at deploy time, never hardcoded
     adminUser: ""
     adminPassword: ""
 
     grafana.ini:
       server:
-        domain: grafana-extra-migration-dev.YOUR_DOMAIN_HERE
-        root_url: "https://grafana-extra-migration-dev.YOUR_DOMAIN_HERE"
+        root_url: "http://localhost:3000"
       auth:
         disable_login_form: false
       security:
         allow_embedding: false
 
-    # Dashboards provisioned from configmaps
+    # Ingress disabled — use kubectl port-forward instead
+    ingress:
+      enabled: false
+
+    # Dashboards provisioned from configmap (not hand-clicked)
     dashboardProviders:
       dashboardproviders.yaml:
         apiVersion: 1
@@ -103,18 +102,6 @@ kube-prometheus-stack:
               authType: default  # uses IRSA — no keys committed
               defaultRegion: us-east-1
 
-    # Ingress with IP allowlist
-    ingress:
-      enabled: true
-      ingressClassName: nginx
-      annotations:
-        nginx.ingress.kubernetes.io/whitelist-source-range: "YOUR_HOME_IP/32"
-        nginx.ingress.kubernetes.io/auth-type: basic
-        nginx.ingress.kubernetes.io/auth-secret: grafana-basic-auth
-      hosts:
-        - grafana-extra-migration-dev.YOUR_DOMAIN_HERE
-      tls: []  # add once cert-manager lands
-
   # ── Alertmanager ────────────────────────────────────────────────────────────
   alertmanager:
     enabled: true
@@ -139,7 +126,7 @@ kube-prometheus-stack:
         receiver: "null"
       receivers:
         - name: "null"
-      # Story 2.3 will add Slack routing here
+      # Story 2.3 will layer Slack routing here
 
   # ── Node Exporter ────────────────────────────────────────────────────────────
   nodeExporter:
