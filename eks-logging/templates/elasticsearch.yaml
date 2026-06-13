@@ -16,13 +16,18 @@ spec:
       labels:
         app: elasticsearch
     spec:
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
       initContainers:
-        # Required: Elasticsearch needs vm.max_map_count >= 262144
         - name: fix-permissions
           image: busybox
-          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          command: ["sh", "-c", "sysctl -w vm.max_map_count=262144 && chown -R 1000:1000 /usr/share/elasticsearch/data"]
           securityContext:
             privileged: true
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
       containers:
         - name: elasticsearch
           image: "{{ .Values.elasticsearch.image.repository }}:{{ .Values.elasticsearch.image.tag }}"
@@ -83,4 +88,4 @@ spec:
       name: http
     - port: 9300
       name: transport
-  clusterIP: None   # headless — required for StatefulSet DNS
+  clusterIP: None
