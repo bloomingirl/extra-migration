@@ -1,0 +1,9 @@
+apiVersion: v2
+name: eks-logging
+description: EFK stack (Elasticsearch + Fluent Bit + Kibana) for extra-migration EKS cluster
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+# Locally-vendored — no upstream chart pulled at deploy time.
+# Community charts were used as reference and adapted into charts/efk/
