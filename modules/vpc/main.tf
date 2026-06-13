@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 resource "aws_vpc" "this" {
   cidr_block = var.vpc_cidr
 
@@ -71,6 +73,7 @@ resource "aws_subnet" "private" {
     "kubernetes.io/role/internal-elb" = "1"
   }
 }
+
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
 
@@ -151,20 +154,25 @@ resource "aws_security_group" "vpc_endpoints" {
   }
 }
 
+# Services that support dualstack
 locals {
-  interface_endpoints = toset([
-    "ec2",
+  dualstack_endpoints = toset([
     "ecr.api",
     "ecr.dkr",
     "sts",
-    "ssm",
     "eks",
+    "ssm",
     "sqs",
+  ])
+
+  # ec2 does not support ipv6/dualstack — use ipv4 only
+  ipv4_endpoints = toset([
+    "ec2",
   ])
 }
 
-resource "aws_vpc_endpoint" "interface" {
-  for_each = local.interface_endpoints
+resource "aws_vpc_endpoint" "interface_dualstack" {
+  for_each = local.dualstack_endpoints
 
   vpc_id              = aws_vpc.this.id
   service_name        = "com.amazonaws.us-east-1.${each.key}"
@@ -172,7 +180,23 @@ resource "aws_vpc_endpoint" "interface" {
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
-  ip_address_type     = "ipv6"
+  ip_address_type     = "dualstack"
+
+  tags = {
+    Name = "extra-migration-${var.environment}-${each.key}"
+  }
+}
+
+resource "aws_vpc_endpoint" "interface_ipv4" {
+  for_each = local.ipv4_endpoints
+
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.us-east-1.${each.key}"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+  ip_address_type     = "ipv4"
 
   tags = {
     Name = "extra-migration-${var.environment}-${each.key}"
