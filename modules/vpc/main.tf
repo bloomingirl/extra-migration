@@ -154,7 +154,9 @@ resource "aws_security_group" "vpc_endpoints" {
   }
 }
 
-# Services that support dualstack
+# Interface endpoints — dualstack only
+# ec2 endpoint intentionally excluded: us-east-1 ec2 endpoint supports ipv4 only,
+# and IPv6-only pods reach EC2 API via the Egress-Only IGW instead.
 locals {
   dualstack_endpoints = toset([
     "ecr.api",
@@ -163,11 +165,6 @@ locals {
     "eks",
     "ssm",
     "sqs",
-  ])
-
-  # ec2 does not support ipv6/dualstack — use ipv4 only
-  ipv4_endpoints = toset([
-    "ec2",
   ])
 }
 
@@ -187,22 +184,6 @@ resource "aws_vpc_endpoint" "interface_dualstack" {
   }
 }
 
-resource "aws_vpc_endpoint" "interface_ipv4" {
-  for_each = local.ipv4_endpoints
-
-  vpc_id              = aws_vpc.this.id
-  service_name        = "com.amazonaws.us-east-1.${each.key}"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-  ip_address_type     = "ipv4"
-
-  tags = {
-    Name = "extra-migration-${var.environment}-${each.key}"
-  }
-}
-
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.this.id
   service_name      = "com.amazonaws.us-east-1.s3"
@@ -213,3 +194,4 @@ resource "aws_vpc_endpoint" "s3" {
     Name = "extra-migration-${var.environment}-s3"
   }
 }
+
