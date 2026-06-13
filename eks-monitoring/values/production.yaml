@@ -1,0 +1,22 @@
+# values/production.yaml
+# Production environment — not deployed yet, values defined for completeness
+
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      retention: 90d
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 100Gi
+
+  grafana:
+    grafana.ini:
+      server:
+        domain: grafana-extra-migration-prod.YOUR_DOMAIN_HERE
+        root_url: "https://grafana-extra-migration-prod.YOUR_DOMAIN_HERE"
+    ingress:
+      hosts:
+        - grafana-extra-migration-prod.YOUR_DOMAIN_HERE
