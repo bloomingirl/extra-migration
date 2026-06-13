@@ -1,0 +1,22 @@
+# values/staging.yaml
+# Staging environment — not deployed yet, values defined for completeness
+
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      retention: 30d
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 50Gi
+
+  grafana:
+    grafana.ini:
+      server:
+        domain: grafana-extra-migration-staging.YOUR_DOMAIN_HERE
+        root_url: "https://grafana-extra-migration-staging.YOUR_DOMAIN_HERE"
+    ingress:
+      hosts:
+        - grafana-extra-migration-staging.YOUR_DOMAIN_HERE
