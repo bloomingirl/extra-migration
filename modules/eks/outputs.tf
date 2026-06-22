@@ -18,3 +18,13 @@ output "oidc_provider_url" {
   description = "URL of the OIDC provider without https:// prefix, for use in IAM trust policy conditions"
   value       = replace(aws_iam_openid_connect_provider.this.url, "https://", "")
 }
+
+output "cluster_ca_data" {
+  description = "Base64-encoded cluster CA certificate (for kubernetes/helm provider configuration)"
+  value       = aws_eks_cluster.this.certificate_authority[0].data
+}
+
+output "node_security_group_id" {
+  description = "Security group ID for EKS worker nodes (reused by Karpenter)"
+  value       = aws_security_group.eks_nodes.id
+}

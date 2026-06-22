@@ -39,3 +39,16 @@ module "eks" {
   kubernetes_version = "1.33"
 }
 
+module "karpenter" {
+  source = "../../../modules/karpenter"
+  cluster_name           = module.eks.cluster_name
+  cluster_endpoint       = module.eks.cluster_endpoint
+  oidc_provider_arn      = module.eks.oidc_provider_arn
+  oidc_provider_url      = module.eks.oidc_provider_url
+  subnet_ids             = module.vpc.public_subnet_ids
+  node_security_group_id = module.eks.node_security_group_id
+  tags = {
+    Environment = "dev"
+    Project     = "extra-migration"
+  }
+}
