@@ -117,6 +117,14 @@ data "aws_iam_policy_document" "karpenter_controller_permissions" {
     ]
     resources = ["*"]
   }
+
+  # AWS Pricing API for cost-optimal instance type selection
+  statement {
+    sid       = "AllowPricingRead"
+    effect    = "Allow"
+    actions   = ["pricing:GetProducts"]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "karpenter_controller" {
