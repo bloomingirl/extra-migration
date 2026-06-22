@@ -1,5 +1,26 @@
+# LoadBalancerConfiguration: AWS-specific config for the ALB.
+# Referenced by Gateway via infrastructure.parametersRef.
+resource "kubernetes_manifest" "lbconfig_internet_facing" {
+  manifest = {
+    apiVersion = "gateway.k8s.aws/v1beta1"
+    kind       = "LoadBalancerConfiguration"
+    metadata = {
+      name      = "internet-facing"
+      namespace = "kube-system"
+    }
+    spec = {
+      scheme        = "internet-facing"
+      ipAddressType = "dualstack"
+    }
+  }
+
+  depends_on = [
+    helm_release.alb_controller,
+    null_resource.lbc_gateway_crds,
+  ]
+}
+
 # GatewayClass tells Kubernetes which controller materializes Gateways.
-# The controllerName must match what ALB Controller registers as.
 resource "kubernetes_manifest" "gatewayclass_alb" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -20,7 +41,7 @@ resource "kubernetes_manifest" "gatewayclass_alb" {
 }
 
 # Gateway: a concrete instance of an ALB.
-# When applied, ALB Controller creates a real ALB in AWS.
+# Uses LoadBalancerConfiguration via infrastructure.parametersRef to be internet-facing.
 resource "kubernetes_manifest" "gateway_default" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -31,6 +52,13 @@ resource "kubernetes_manifest" "gateway_default" {
     }
     spec = {
       gatewayClassName = "alb"
+      infrastructure = {
+        parametersRef = {
+          group = "gateway.k8s.aws"
+          kind  = "LoadBalancerConfiguration"
+          name  = "internet-facing"
+        }
+      }
       listeners = [
         {
           name     = "http"
@@ -46,5 +74,8 @@ resource "kubernetes_manifest" "gateway_default" {
     }
   }
 
-  depends_on = [kubernetes_manifest.gatewayclass_alb]
+  depends_on = [
+    kubernetes_manifest.gatewayclass_alb,
+    kubernetes_manifest.lbconfig_internet_facing,
+  ]
 }
