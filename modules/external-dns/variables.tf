@@ -3,11 +3,6 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "vpc_id" {
-  description = "VPC ID where ALB will be created"
-  type        = string
-}
-
 variable "oidc_provider_arn" {
   description = "ARN of the OIDC provider for IRSA"
   type        = string
@@ -18,20 +13,24 @@ variable "oidc_provider_url" {
   type        = string
 }
 
-variable "alb_controller_version" {
-  description = "AWS Load Balancer Controller Helm chart version"
+variable "hosted_zone_id" {
+  description = "Route53 hosted zone ID to manage"
   type        = string
-  default     = "1.14.0"
+}
+
+variable "domain_filter" {
+  description = "Domain to filter (external-dns will only manage records under this domain)"
+  type        = string
+}
+
+variable "external_dns_version" {
+  description = "external-dns Helm chart version"
+  type        = string
+  default     = "1.15.0"
 }
 
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
-}
-
-variable "acm_certificate_arn" {
-  description = "ARN of ACM certificate for HTTPS listener (optional; if empty, HTTPS listener is not created)"
-  type        = string
-  default     = ""
 }

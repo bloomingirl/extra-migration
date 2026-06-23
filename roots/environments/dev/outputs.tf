@@ -20,3 +20,7 @@ output "cluster_endpoint" {
 output "cluster_arn" {
   value = module.eks.cluster_arn
 }
+output "acm_certificate_arn" {
+  description = "ARN of the wildcard ACM certificate"
+  value       = module.acm.certificate_arn
+}

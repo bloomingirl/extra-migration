@@ -1,5 +1,5 @@
 # LoadBalancerConfiguration: AWS-specific config for the ALB.
-# Referenced by Gateway via infrastructure.parametersRef.
+# Includes per-listener cert configuration for HTTPS.
 resource "kubernetes_manifest" "lbconfig_internet_facing" {
   manifest = {
     apiVersion = "gateway.k8s.aws/v1beta1"
@@ -8,10 +8,20 @@ resource "kubernetes_manifest" "lbconfig_internet_facing" {
       name      = "internet-facing"
       namespace = "kube-system"
     }
-    spec = {
-      scheme        = "internet-facing"
-      ipAddressType = "dualstack"
-    }
+    spec = merge(
+      {
+        scheme        = "internet-facing"
+        ipAddressType = "dualstack"
+      },
+      var.acm_certificate_arn == "" ? {} : {
+        listenerConfigurations = [
+          {
+            protocolPort       = "HTTPS:443"
+            defaultCertificate = var.acm_certificate_arn
+          }
+        ]
+      }
+    )
   }
 
   depends_on = [
@@ -40,8 +50,33 @@ resource "kubernetes_manifest" "gatewayclass_alb" {
   ]
 }
 
+# Build listener list: HTTP always, HTTPS only when cert ARN provided.
+locals {
+  http_listener = {
+    name     = "http"
+    protocol = "HTTP"
+    port     = 80
+    allowedRoutes = {
+      namespaces = {
+        from = "All"
+      }
+    }
+  }
+
+  https_listener = {
+    name     = "https"
+    protocol = "HTTPS"
+    port     = 443
+    allowedRoutes = {
+      namespaces = {
+        from = "All"
+      }
+    }
+  }
+}
+
 # Gateway: a concrete instance of an ALB.
-# Uses LoadBalancerConfiguration via infrastructure.parametersRef to be internet-facing.
+# Cert config is in LoadBalancerConfiguration; here we just define listeners.
 resource "kubernetes_manifest" "gateway_default" {
   manifest = {
     apiVersion = "gateway.networking.k8s.io/v1"
@@ -59,18 +94,10 @@ resource "kubernetes_manifest" "gateway_default" {
           name  = "internet-facing"
         }
       }
-      listeners = [
-        {
-          name     = "http"
-          protocol = "HTTP"
-          port     = 80
-          allowedRoutes = {
-            namespaces = {
-              from = "All"
-            }
-          }
-        }
-      ]
+      listeners = concat(
+        [local.http_listener],
+        var.acm_certificate_arn == "" ? [] : [local.https_listener]
+      )
     }
   }
 

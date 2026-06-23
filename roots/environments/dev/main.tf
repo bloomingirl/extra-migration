@@ -54,10 +54,32 @@ module "karpenter" {
 }
 module "alb_controller" {
   source = "../../../modules/alb-controller"
+  cluster_name        = module.eks.cluster_name
+  vpc_id              = module.vpc.vpc_id
+  oidc_provider_arn   = module.eks.oidc_provider_arn
+  oidc_provider_url   = module.eks.oidc_provider_url
+  acm_certificate_arn = module.acm.certificate_arn
+  tags = {
+    Environment = "dev"
+    Project     = "extra-migration"
+  }
+}
+module "external_dns" {
+  source = "../../../modules/external-dns"
   cluster_name      = module.eks.cluster_name
-  vpc_id            = module.vpc.vpc_id
   oidc_provider_arn = module.eks.oidc_provider_arn
   oidc_provider_url = module.eks.oidc_provider_url
+  hosted_zone_id    = var.hosted_zone_id
+  domain_filter     = var.domain_name
+  tags = {
+    Environment = "dev"
+    Project     = "extra-migration"
+  }
+}
+module "acm" {
+  source = "../../../modules/acm"
+  domain_name    = var.domain_name
+  hosted_zone_id = var.hosted_zone_id
   tags = {
     Environment = "dev"
     Project     = "extra-migration"
