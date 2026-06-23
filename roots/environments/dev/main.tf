@@ -85,3 +85,7 @@ module "acm" {
     Project     = "extra-migration"
   }
 }
+
+module "secrets_csi" {
+  source = "../../../modules/secrets-csi"
+}
